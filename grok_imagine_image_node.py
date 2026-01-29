@@ -48,7 +48,6 @@ class GrokImagineImage:
             },
             "optional": {
                 "image": ("IMAGE",),
-                "api_key": ("STRING", {"multiline": False, "default": os.getenv("XAI_API_KEY", "")}),
                 "model": ("STRING", {"multiline": False, "default": "grok-imagine-image"}),
                 "aspect_ratio": ("STRING", {"multiline": False, "default": "1:1"}),  # e.g. "4:3"
                 "n": ("INT", {"default": 1, "min": 1, "max": 10}),
@@ -60,7 +59,8 @@ class GrokImagineImage:
     FUNCTION = "generate"
     CATEGORY = "LimitBreak/Grok"
 
-    def generate(self, prompt, image=None, api_key="", model="grok-imagine-image", aspect_ratio="1:1", n=1, timeout_sec=120):
+    def generate(self, prompt, image=None, model="grok-imagine-image", aspect_ratio="1:1", n=1, timeout_sec=120):
+        api_key = os.getenv("XAI_API_KEY")
         if not api_key:
             raise ValueError("XAI API key is empty. Set api_key input or environment variable XAI_API_KEY.")
 
