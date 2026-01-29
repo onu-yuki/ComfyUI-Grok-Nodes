@@ -35,13 +35,14 @@ def _png_bytes_to_comfy_image(png_bytes: bytes) -> torch.Tensor:
 
 
 def _bytes_to_data_url(mime: str, raw: bytes) -> str:
+    """Convert raw bytes to a data URL string (for JSON image inputs)."""
     b64 = base64.b64encode(raw).decode("utf-8")
     return f"data:{mime};base64,{b64}"
 
 
 class GrokImagineImage:
     """
-    Image-to-Image (Edit) node for xAI grok-imagine-image via /v1/images/edits (JSON + image_url data URL)
+    Image-to-Image (Edit) node for xAI grok-imagine-image via /v1/images/edits
     If no image is connected, it falls back to /v1/images/generations (text-to-image).
     """
 
@@ -65,9 +66,15 @@ class GrokImagineImage:
     CATEGORY = "LimitBreak/Grok"
 
     def generate(self, prompt, image=None, model="grok-imagine-image", aspect_ratio="1:1", n=1, timeout_sec=120):
-        api_key = os.getenv("XAI_API_KEY", "").strip()
+        api_key = os.getenv("XAI_API_KEY")
         if not api_key:
-            raise ValueError("XAI_API_KEY is not set. Please set env var XAI_API_KEY before launching ComfyUI.")
+            raise ValueError("XAI API key is empty. Set api_key input or environment variable XAI_API_KEY.")
+
+        # Always use JSON. xAI image endpoints expect application/json.
+        headers = {
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+        }
 
         # Prefer base64 output so we can return IMAGE directly
         response_format = "b64_json"
@@ -77,28 +84,22 @@ class GrokImagineImage:
             url = "https://api.x.ai/v1/images/edits"
 
             png_bytes = _comfy_image_to_png_bytes(image)
-            image_url = _bytes_to_data_url("image/png", png_bytes)
+            data_url = _bytes_to_data_url("image/png", png_bytes)
 
+            # IMPORTANT: xAI /v1/images/edits requires field name `image` (not image_url)
             payload = {
                 "model": model,
                 "prompt": prompt,
-                "image_url": image_url,
+                "image": data_url,
                 "response_format": response_format,
                 "n": int(n),
                 "aspect_ratio": str(aspect_ratio),
-            }
-
-            headers = {
-                "Authorization": f"Bearer {api_key}",
-                "Content-Type": "application/json",
             }
 
             r = requests.post(url, headers=headers, json=payload, timeout=int(timeout_sec))
-
         else:
             # ---- Text to Image fallback ----
             url = "https://api.x.ai/v1/images/generations"
-
             payload = {
                 "model": model,
                 "prompt": prompt,
@@ -106,12 +107,6 @@ class GrokImagineImage:
                 "n": int(n),
                 "aspect_ratio": str(aspect_ratio),
             }
-
-            headers = {
-                "Authorization": f"Bearer {api_key}",
-                "Content-Type": "application/json",
-            }
-
             r = requests.post(url, headers=headers, json=payload, timeout=int(timeout_sec))
 
         if r.status_code >= 400:
