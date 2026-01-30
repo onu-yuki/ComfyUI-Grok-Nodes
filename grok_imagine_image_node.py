@@ -90,7 +90,7 @@ class GrokImagineImage:
             payload = {
                 "model": model,
                 "prompt": prompt,
-                "image": data_url,
+                "image": {"url": data_url},
                 "response_format": response_format,
                 "n": int(n),
                 "aspect_ratio": str(aspect_ratio),
